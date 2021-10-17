@@ -1,0 +1,81 @@
+---
+title: "HR Data Analysis Example"
+author: "James Carr"
+date: "10/17/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+```
+
+I found four government workforce data sets online from different public websites and downloaded them in *.csv format. You can view these data sets for yourself in my [github repo](https://github.com/jrcarr83/HR-example/tree/main/data). Unfortunately, these are not relational databases so joins do not make much sense; however, they do contain similar data types and columns so unions will be useful. I really enjoy using RStudio and Markdown, and I will be using dplyr from the tidyverse package to do most of my analytics, but when possible, I will also provide the SQL equivalent code.
+
+```{r import_data, message=FALSE, warning=FALSE}
+library(tidyverse)
+bloomington <- read_csv('data/bloomington.csv') %>%
+                mutate(names = factor(employee),
+                       departments = factor(department),
+                       salaries = `annual rate`) %>%
+                       select(-`annual rate`, -department, -employee)
+chicago <- read_csv('data/chicago.csv') %>%
+            mutate(names = factor(Name),
+                   job_titles = factor(`Job Titles`),
+                   departments = factor(Department),
+                   ft_or_pt = factor(`Full or Part-Time`),
+                   wage_types = factor(`Salary or Hourly`),
+                   hours = `Typical Hours`,
+                   salaries = `Annual Salary`,
+                   hourly_rates = `Hourly Rate`) %>%
+                   select(-`Name`, -`Job Titles`, -Department,
+                          -`Full or Part-Time`, -`Salary or Hourly`,
+                          -`Typical Hours`, -`Annual Salary`,
+                          -`Hourly Rate`)
+louisville <- read_csv('data/louisville.csv') %>%
+              mutate(hrs_types = factor(WORKED_HRS_TYPE),
+                     div_names = factor(DivName),
+                     departments = factor(Dept),
+                     years = factor(FiscalYear),
+                     amt_hours = AMOUNT_HOURS,
+                     amt_dollars = AMOUNT_DOLLARS) %>%
+              select(-L_ACCT, -L_FUND, -WORKED_HRS_TYPE, -L_DIVISION,
+                     -DivName, -DEPTID, -Dept, -SubDept, 
+                     -BIWEEKLY_PAY_PERIOD_END_DATE, -FiscalYear, -EARN_CODE,
+                     -EARN_DESCR, -AMOUNT_HOURS, -AMOUNT_DOLLARS)
+marin <- read_csv('data/marin.csv') 
+marin_cols <- names(marin)
+marin <- marin %>%
+           mutate(person_nums = `Open Data Person Number`,
+                  genders = factor(Gender),
+                  ethnicities = factor(`Ethnic Origin`),
+                  origins = factor(`Regular Hire Origin`),
+                  hire_dates = `Regular Hire Date`,
+                  termination_dates = `Termination Date`,
+                  termination_reasons = factor(`Termination Reason`),
+                  data_dates = `Point in Time`,
+                  active_fg = factor(`Active Employee (on date)`),
+                  age_ranges = factor(`Age Range (on date)`),
+                  job_desc = factor(`SOC Job Group Description (on date)`),
+                  departments = factor(`Department (on date)`),
+                  years = factor(`Calendar Year`)) %>%
+            select(-marin_cols)
+```
+
+I tried to keep a consistent naming convention across all of the data sets - lower case and separated by underscores instead of spaces. It seems that each data set contains a department variable and some sort of salary or wage value, which will make for a good comparison across the cities. The Marin data contains the most descriptive columns, allowing for more interesting analysis. Louisville is the least like the others: it looks at summarized values by deparment rather than individual. Let's look at the departments:
+
+### SQL Code to look at departments and salaries across the cities
+```
+select departments, count(*) as num_ppl
+from bloomington
+group by departments
+
+```
+```{r depts}
+
+dept_bloom <- bloomington %>% group_by(departments) %>% tally()
+dept_chicago <- chicago %>% group_by(departments) %>% tally()
+dept_marin <- marin %>% group_by(departments) %>% tally()
+
+```
+
