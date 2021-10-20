@@ -107,6 +107,7 @@ num_rows<- nrow(bloomington %>% group_by(names, departments) %>%
 tbl <- cbind(unname(num_rows))
 kable(tbl, caption='Number of Duplicated Names - Bloomington post dedupe')
 ```
+After grouping the data by the max for each individual, there were no more duplicates.
 
 A similar check was run for Chicago, and there were no duplicates.
 ```{r chic_dupes, echo=FALSE, message=FALSE, warnings=FALSE}
@@ -153,7 +154,6 @@ Looking at the summary table, there are clearly some part-time positions that sk
 ```{r bloom_quant, warning=FALSE, message=FALSE, echo=FALSE}
 #grab 20% quantile
 cutoff <- quantile(bloomington$salaries, 0.25)
-cutoff
 #get density 
 curve <- density(bloomington$salaries)
 #put density into tibble and filter to cutoff
@@ -173,7 +173,7 @@ Looking at the graph above, the 20% quantile is near $25,000, and we'll flag par
 ```{r bloom_resum, echo=FALSE, warning=FALSE, message=FALSE}
 bloomington <- bloomington %>%
                 mutate(emp_type = if_else(
-                  salaries >= 25000, 'Full Time', 'Part-Time'))
+                  salaries >= 25000, 'Full Time', 'Part Time'))
 
 bloom_sum <- bloomington %>% group_by(departments, emp_type) %>% 
                 summarise(`min` = min(salaries),
