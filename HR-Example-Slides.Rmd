@@ -1,0 +1,279 @@
+---
+title: "HR Analysis Example"
+author: "James Carr"
+date: "10/21/2021"
+output: 
+  flexdashboard::flex_dashboard:
+    vertical_layout: scroll
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(DT)
+library(plotly)
+library(flexdashboard)
+library(gridExtra)
+library(htmltools)
+```
+
+```{r import_data, echo=FALSE, message=FALSE, warning=FALSE}
+bloomington <- read_csv('data/bloomington.csv') %>%
+                mutate(names = factor(employee),
+                       departments = factor(department),
+                       salaries = `annual rate`) %>%
+                       select(-`annual rate`, -department, -employee)
+chicago <- read_csv('data/chicago.csv') %>%
+            mutate(names = factor(Name),
+                   job_titles = factor(`Job Titles`),
+                   departments = factor(Department),
+                   ft_or_pt = factor(`Full or Part-Time`),
+                   wage_types = factor(`Salary or Hourly`),
+                   hours = `Typical Hours`,
+                   salaries = `Annual Salary`,
+                   hourly_rates = `Hourly Rate`) %>%
+                   select(-`Name`, -`Job Titles`, -Department,
+                          -`Full or Part-Time`, -`Salary or Hourly`,
+                          -`Typical Hours`, -`Annual Salary`,
+                          -`Hourly Rate`)
+louisville <- read_csv('data/louisville.csv') %>%
+              mutate(hrs_types = factor(WORKED_HRS_TYPE),
+                     div_names = factor(DivName),
+                     departments = factor(Dept),
+                     years = factor(FiscalYear),
+                     amt_hours = AMOUNT_HOURS,
+                     amt_dollars = AMOUNT_DOLLARS) %>%
+              select(-L_ACCT, -L_FUND, -WORKED_HRS_TYPE, -L_DIVISION,
+                     -DivName, -DEPTID, -Dept, -SubDept, 
+                     -BIWEEKLY_PAY_PERIOD_END_DATE, -FiscalYear, -EARN_CODE,
+                     -EARN_DESCR, -AMOUNT_HOURS, -AMOUNT_DOLLARS)
+marin <- read_csv('data/marin.csv') 
+marin_cols <- names(marin)
+marin <- marin %>%
+           mutate(person_nums = `Open Data Person Number`,
+                  genders = factor(Gender),
+                  ethnicities = factor(`Ethnic Origin`),
+                  origins = factor(`Regular Hire Origin`),
+                  hire_dates = `Regular Hire Date`,
+                  termination_dates = `Termination Date`,
+                  termination_reasons = factor(`Termination Reason`),
+                  data_dates = `Point in Time`,
+                  active_fg = factor(`Active Employee (on date)`),
+                  age_ranges = factor(`Age Range (on date)`),
+                  job_desc = factor(`SOC Job Group Description (on date)`),
+                  departments = factor(`Department (on date)`),
+                  years = `Calendar Year`) %>%
+            select(-marin_cols)
+```
+
+```{r bloom_depts_dedupe, echo=FALSE, warning=FALSE, message=FALSE}
+#group by names and departments and max the salaries
+bloomington <- bloomington %>% group_by(names, departments) %>% 
+                summarise(salaries = max(salaries))
+```
+
+```{r chic_dedupe, warning=FALSE, message=FALSE, echo=FALSE}
+chicago <- chicago %>% group_by(names, job_titles, departments,
+                             wage_types, ft_or_pt) %>%
+                    summarise(hours = max(hours),
+                              salaries = max(salaries),
+                              hourly_rates = max(hourly_rates))
+```
+
+```{r marin_dedupe, warning=FALSE, message=FALSE, echo=FALSE}
+marin <- marin %>% filter(years==2020)
+```
+
+Introduction {data-icon="ion-ios-book"}
+===================================== 
+## Column 1  
+### Bloomington  
+![](pics/bloomington.jpg)
+
+## Column 2  
+### Chicago  
+![](pics/chicago.jpg)
+
+## Column 3
+### Marin County
+![](pics/marin.jpeg) 
+
+Data Issues {data-icon="ion-android-warning"}
+===================================== 
+{.tabset .tabset-fade}
+------------------
+
+### Identify
+```{r bloom_sum, warning=FALSE, message=FALSE, echo=FALSE}
+bloom_sum <- bloomington %>% group_by(departments) %>% 
+                summarise(`min` = min(salaries),
+                          `25%` = quantile(salaries, 0.25),
+                          `median` = quantile(salaries, 0.5),
+                          `mean` = mean(salaries),
+                          `75%` = quantile(salaries, 0.75),
+                          `max` = max(salaries))
+div(style='height=1500;overflow-y: scroll', 
+  datatable(bloom_sum) %>% 
+    formatCurrency(c('min', '25%', 'mean', 'median',
+                                          '75%', 'max'), digits=0)
+)
+```
+
+### Plan
+```{r densities, warning=FALSE, message=FALSE, echo=FALSE}
+#grab 20% quantile
+cutoff <- quantile(bloomington$salaries, 0.25)
+#get density 
+curve <- density(bloomington$salaries)
+#put density into tibble and filter to cutoff
+df <- tibble(data.frame(cbind(x=curve$x,y=curve$y))) %>%
+      filter(between(x, min(bloomington$salaries), cutoff))
+
+#plot
+bloom_p <- ggplot(data=bloomington, aes(x=salaries)) +
+      geom_density() + 
+      geom_ribbon(data=df, aes(x, ymin=0, ymax=y)) +
+      theme_classic() +
+      ggtitle('Density of Salaries in Bloomington')
+
+chicago <- chicago %>% mutate(salaries = if_else(
+                              is.na(salaries), hours*hourly_rates*52, salaries),
+                              emp_type = if_else(
+                              ft_or_pt == 'F', 'Full Time', 'Part Time')) %>%
+                       select(-ft_or_pt)
+
+#similar analysis of departments by full_time and part time for this group
+chi_p <- ggplot(data=chicago %>% filter(emp_type == 'Full Time'), 
+            aes(x=salaries)) +
+      geom_density() + 
+      theme_classic() +
+      ggtitle('Density of Salaries in Bloomington and Chicago')
+
+subplot(bloom_p, chi_p)
+```
+
+### Resolve
+
+**Sample SQL to check for duplicate names**
+```
+select names, count(*) as num_rows
+from bloomington
+group by names
+having num_rows > 1
+```
+**Sample SQL to remove duplicate names**
+```
+select names, departments, max(salaries) as salaries
+from bloomington
+group by names, departments
+```
+**Sample SQL to create column labeling part time or full time **
+```
+select names 
+      ,departments
+      ,salaries
+      ,case when salaries < 25000 then 'Part Time'
+            else 'Full Time' end as emp_type
+from bloomington
+```
+
+### Verify {data-height=1000}
+```{r bloom_resum, echo=FALSE, warning=FALSE, message=FALSE}
+bloomington <- bloomington %>%
+                mutate(emp_type = if_else(
+                  salaries >= 25000, 'Full Time', 'Part Time'))
+
+bloom_sum <- bloomington %>% group_by(departments, emp_type) %>% 
+                summarise(`min` = min(salaries),
+                          `25%` = quantile(salaries, 0.25),
+                          `median` = quantile(salaries, 0.5),
+                          `mean` = mean(salaries),
+                          `75%` = quantile(salaries, 0.75),
+                          `max` = max(salaries))
+#datatable(bloom_sum) %>% 
+ #   formatCurrency(c('min', '25%', 'mean', 'median',
+  #                                        '75%', 'max'), digits=0) 
+
+div(style='height=1500;overflow-y: scroll', 
+  datatable(bloom_sum) %>% 
+  formatCurrency(c('min', '25%', 'mean', 'median', '75%', 'max'), digits=0)     )    
+```
+
+Analyze {data-icon="ion-arrow-graph-up-right"}
+===================================== 
+{.tabset .tabset-fade}
+------------------
+
+### Estimate {data-height=1000}
+```{r chicago_money, warning=FALSE, message=FALSE}
+#filter the chicago data onto only full time employees
+temp <- chicago %>% filter(emp_type == 'Full Time')
+
+#fit a simple linear model with no intercept
+glm_fit <- lm(salaries ~ 0 + departments, data=temp)
+
+#get unique values of the departments
+depts <- tibble(levels(chicago$departments))
+colnames(depts) = c('departments')
+
+#predict the mean and 95% prediction interval for each dept
+preds <- data.frame(predict(glm_fit, newdata=depts, interval = "prediction"))
+
+#combine back with unique list of depts
+depts <- cbind(depts, preds)
+
+#join back into main dataset
+chic_final <- left_join(chicago, depts, by = c('departments')) %>% 
+  filter(emp_type == 'Full Time')
+```
+
+```
+#filter the chicago data onto only full time employees
+temp <- chicago %>% filter(emp_type == 'Full Time')
+
+#fit a simple linear model with no intercept
+glm_fit <- lm(salaries ~ 0 + departments, data=temp)
+
+#get unique values of the departments
+depts <- tibble(levels(chicago$departments))
+colnames(depts) = c('departments')
+
+#predict the mean and 95% prediction interval for each dept
+preds <- data.frame(predict(glm_fit, newdata=depts, interval = "prediction"))
+
+#combine back with unique list of depts
+depts <- cbind(depts, preds)
+
+#join back into main dataset
+chic_final <- left_join(chicago, depts, by = c('departments')) %>% 
+  filter(emp_type == 'Full Time')
+```
+
+### SQL for the Join {data-height=1000}
+```
+select chi.*
+      ,pred.lwr
+      ,pred.upper
+from chicago as chi
+left join predictions as pred
+on chi.departments = pred.departments
+```
+
+### Plot the Results {data-height=1500}
+```{css my-style, echo = FALSE}
+#section-notes-and-formulas
+  .chart-shim {
+    overflow-y: scroll;
+    }
+```
+```{r chicago_graph, echo=FALSE, warning=FALSE, message=FALSE}
+p <- ggplot(data=chic_final, aes(x=departments, y=salaries, text=names)) +
+        geom_jitter() +
+        facet_wrap(vars(departments), scale='free', ncol=4) +
+        geom_hline(aes(yintercept=lwr)) + geom_hline(aes(yintercept=upr))
+fig <- ggplotly(p, tooltip='names', height=1500, width=1200)
+fig
+```
+
+Conclusion {data-icon="ion-ios-star"}
+===================================== 
+![](pics/thankyou.png)

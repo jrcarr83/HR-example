@@ -1,8 +1,8 @@
 ---
 title: "HR Data Analysis Example"
-always_allow_html: true
+author: 'James Carr'
 output: 
-  github_document:
+  html_document:
     toc: true
 ---
 
@@ -87,10 +87,10 @@ When I was first tasked with performing a data analysis related to this position
 Instead, I found three real-world examples of government employee data from Bloomington, Chicago, and Marin. The data are not relational, and they have different columns, but they are real data sets with all of the problems that come from real, data sets. In this readme, I will talk about the data, how I learned about it, cleaned it, and summarized it. At the end, there is also a brief statistical analysis of salaries from Chicago.
 
 ## R Packages Used
-First, the R Packages used in this analysis are:
-*  Tidyverse - tibbles, dplyr, read_csv
-*  DT - nice, packaged data tables
-*  Plotly - the final, interactive graph uses ggplotly
+First, the R Packages used in this analysis are:  
+  * Tidyverse - tibbles, dplyr, read_csv  
+  * DT - nice, packaged data tables  
+  * Plotly - the final, interactive graph uses ggplotly  
 
 ## The Data
 I found three government workforce data sets online from different public websites and downloaded them in *csv* format. You can view these data sets for yourself in my [github repo](https://github.com/jrcarr83/HR-example/tree/main/data). The data was read in via the `read_csv()` package offered in *tidyverse*, which loads them into Tibble data frames, making *dplyr* queries natural.
@@ -240,3 +240,12 @@ p <- ggplot(data=chic_final, aes(x=departments, y=salaries, text=names)) +
 fig <- ggplotly(p, tooltip='names')
 fig
 ```
+
+## Conclusions
+Finding good and complete data to work with is not as easy as it seems, but at the same time, working with real, published city workforce data was interesting and rewarding. With more data and time, I could see a comparison of workforce sizes, budget, and diversity as obvious next steps. 
+
+Like most data sets, these had issues that had to be found and worked around. Whether the issue is just general lack of data to segment by, duplicates, or strangely formatted columns, missing data, or incorrect data, there is nearly always work to be done and many tools to do it with.
+
+For me, SQL has been one of the most powerful tools I have used - especially when working with large datasets. Packages like Tidyverse make this type of work a breeze as well, as does Pandas in Python. If given the option, SAS works amazing as well. 
+
+I hope I was able to showcase my ability to consume data I am not familiar with, learn about it, summarize it, clean it, analyze it, and present it in a relatively short amount of time.
